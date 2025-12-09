@@ -39,10 +39,27 @@ const ManagerDashboard = () => {
 
   const fetchData = async () => {
     try {
-      // Fetch local hotels
-      const hotelsRes = await apiClient.get('/hotels');
-      const myHotels = hotelsRes.data.filter((h: any) => h.createdBy?._id === user?._id || h.createdBy === user?._id);
-      setHotels(myHotels);
+      // Check for dummy user
+      if (user?.email === 'manager1@gmail.com') {
+        const dummyHotels = [{
+          _id: 'dummy_hotel_1',
+          title: 'Grand Plaza Hotel (Demo)',
+          address: 'New York, USA',
+          pricePerNight: 450,
+          bookingsCount: 12,
+          revenue: 5400,
+          status: 'active',
+          images: [],
+          amenities: ['Free WiFi', 'Swimming Pool'],
+          createdBy: 'dummy_manager_id'
+        }];
+        setHotels(dummyHotels);
+      } else {
+        // Fetch local hotels
+        const hotelsRes = await apiClient.get('/hotels');
+        const myHotels = hotelsRes.data.filter((h: any) => h.createdBy?._id === user?._id || h.createdBy === user?._id);
+        setHotels(myHotels);
+      }
 
       // Build query string for bookings
       const bookingParams = new URLSearchParams();

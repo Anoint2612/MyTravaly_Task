@@ -23,6 +23,26 @@ const Register = () => {
     e.preventDefault();
     setIsLoading(true);
 
+    // Dummy user simulation
+    if (email === 'manager1@gmail.com' && password === 'manager1234') {
+      const dummyUser = {
+        _id: 'dummy_manager_id',
+        name: name || 'Manager One',
+        email: 'manager1@gmail.com',
+        role: 'manager'
+      };
+      const dummyToken = 'dummy_token';
+
+      // Simulate network delay
+      setTimeout(() => {
+        login(dummyUser, dummyToken);
+        toast.success("Account created successfully! Welcome to LuxeStay.");
+        navigate('/manager');
+        setIsLoading(false);
+      }, 1000);
+      return;
+    }
+
     try {
       const res = await apiClient.post('/auth/register', { name, email, password, role });
       login(res.data, res.data.token);
@@ -36,7 +56,9 @@ const Register = () => {
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Registration failed');
     } finally {
-      setIsLoading(false);
+      if (email !== 'manager1@gmail.com' || password !== 'manager1234') {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -98,8 +120,8 @@ const Register = () => {
               type="button"
               onClick={() => setRole("customer")}
               className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-medium transition-all duration-300 ${role === "customer"
-                  ? "bg-card text-foreground shadow-lg"
-                  : "text-muted-foreground hover:text-foreground"
+                ? "bg-card text-foreground shadow-lg"
+                : "text-muted-foreground hover:text-foreground"
                 }`}
             >
               <UserCircle className="w-5 h-5" />
@@ -109,8 +131,8 @@ const Register = () => {
               type="button"
               onClick={() => setRole("manager")}
               className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-medium transition-all duration-300 ${role === "manager"
-                  ? "bg-card text-foreground shadow-lg"
-                  : "text-muted-foreground hover:text-foreground"
+                ? "bg-card text-foreground shadow-lg"
+                : "text-muted-foreground hover:text-foreground"
                 }`}
             >
               <Building className="w-5 h-5" />

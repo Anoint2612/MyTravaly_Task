@@ -21,6 +21,26 @@ const Login = () => {
     e.preventDefault();
     setIsLoading(true);
 
+    // Dummy user simulation
+    if (email === 'manager1@gmail.com' && password === 'manager1234') {
+      const dummyUser = {
+        _id: 'dummy_manager_id',
+        name: 'Manager One',
+        email: 'manager1@gmail.com',
+        role: 'manager'
+      };
+      const dummyToken = 'dummy_token';
+
+      // Simulate network delay
+      setTimeout(() => {
+        login(dummyUser, dummyToken);
+        toast.success("Welcome back! Redirecting to dashboard...");
+        navigate('/manager');
+        setIsLoading(false);
+      }, 1000);
+      return;
+    }
+
     try {
       const res = await apiClient.post('/auth/login', { email, password });
       login(res.data, res.data.token);
@@ -34,7 +54,9 @@ const Login = () => {
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Login failed');
     } finally {
-      setIsLoading(false);
+      if (email !== 'manager1@gmail.com' || password !== 'manager1234') {
+        setIsLoading(false);
+      }
     }
   };
 
