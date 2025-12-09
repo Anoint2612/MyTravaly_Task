@@ -21,36 +21,55 @@ import Footer from "@/components/home/Footer";
 import { toast } from "sonner";
 import apiClient from "@/services/apiClient";
 import useAuthStore from "@/store/authStore";
+import axios from "axios";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const ManagerDashboard = () => {
   const [hotels, setHotels] = useState<any[]>([]);
   const [metrics, setMetrics] = useState<any>(null);
   const [bookings, setBookings] = useState<any[]>([]);
+  const [trends, setTrends] = useState<any[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingHotel, setEditingHotel] = useState<any>(null);
   const { user } = useAuthStore((state: any) => state);
 
+  const [filterDays, setFilterDays] = useState("30");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterOrder, setFilterOrder] = useState("desc");
+
   const fetchData = async () => {
     try {
-      const [hotelsRes, metricsRes, bookingsRes] = await Promise.all([
-        apiClient.get('/hotels'),
-        apiClient.get('/metrics/manager'),
-        apiClient.get('/bookings')
-      ]);
-
-      // Filter hotels by creator
+      // Fetch local hotels
+      const hotelsRes = await apiClient.get('/hotels');
       const myHotels = hotelsRes.data.filter((h: any) => h.createdBy?._id === user?._id || h.createdBy === user?._id);
       setHotels(myHotels);
-      setMetrics(metricsRes.data);
-      setBookings(bookingsRes.data);
+
+      // Build query string for bookings
+      const bookingParams = new URLSearchParams();
+      if (filterDays) bookingParams.append('days', filterDays);
+      if (filterStatus && filterStatus !== 'all') bookingParams.append('status', filterStatus);
+      if (filterOrder) bookingParams.append('order', filterOrder);
+
+      // Fetch external data
+      const [metricsRes, bookingsRes, trendsRes] = await Promise.all([
+        axios.get(`https://mt-task.onrender.com/api/metrics?days=${filterDays}`),
+        axios.get(`https://mt-task.onrender.com/api/bookings?${bookingParams.toString()}`),
+        axios.get('https://mt-task.onrender.com/api/trends?months=6')
+      ]);
+
+      if (metricsRes.data.success) setMetrics(metricsRes.data.data);
+      if (bookingsRes.data.success) setBookings(bookingsRes.data.data);
+      if (trendsRes.data.success) setTrends(trendsRes.data.data);
+
     } catch (error) {
       console.error(error);
+      toast.error("Failed to fetch dashboard data");
     }
   };
 
   useEffect(() => {
     if (user) fetchData();
-  }, [user]);
+  }, [user, filterDays, filterStatus, filterOrder]);
 
   const handleDeleteHotel = async (id: string) => {
     if (confirm("Are you sure you want to delete this hotel?")) {
@@ -58,7 +77,6 @@ const ManagerDashboard = () => {
         await apiClient.delete(`/hotels/${id}`);
         setHotels(prev => prev.filter(h => h._id !== id));
         toast.success("Hotel deleted successfully");
-        fetchData(); // Refresh metrics
       } catch (error) {
         toast.error("Failed to delete hotel");
       }
@@ -66,20 +84,21 @@ const ManagerDashboard = () => {
   };
 
   const handleUpdateBookingStatus = async (id: string, status: string) => {
-    try {
-      await apiClient.put(`/bookings/${id}/status`, { status });
-      toast.success(`Booking ${status}`);
-      fetchData();
-    } catch (error) {
-      toast.error("Failed to update booking status");
-    }
+    // Note: This won't work for external bookings as IDs don't exist in local DB
+    toast.info("This feature is disabled for demo data");
   };
 
   const totalRevenue = metrics?.totalRevenue || 0;
   const totalBookings = metrics?.totalBookings || 0;
-  const occupancyRate = metrics?.occupancyRate || 0;
+  const activeBookings = (metrics?.pending || 0) + (metrics?.confirmed || 0);
 
-  const pendingBookings = bookings.filter(b => b.status === 'pending');
+  // Filter pending bookings locally if needed, but API should handle it. 
+  // However, the user wants "Pending Bookings" section. 
+  // If the user filters by 'confirmed', this list might be empty or show confirmed bookings.
+  // Let's assume this section shows whatever the API returns based on filters.
+  // Renaming "Pending Bookings" to "Recent Bookings" or just "Bookings" might be better if filters apply.
+  // But for now, I'll keep the variable name but display all bookings returned.
+  const displayedBookings = bookings;
 
   return (
     <div className="min-h-screen bg-background">
@@ -124,7 +143,7 @@ const ManagerDashboard = () => {
               },
               {
                 label: "Active Bookings",
-                value: (metrics?.activeBookings || 0).toString(),
+                value: activeBookings.toString(),
                 change: "Current",
                 icon: TrendingUp,
                 color: "text-warning",
@@ -156,36 +175,127 @@ const ManagerDashboard = () => {
             ))}
           </div>
 
-          {/* Pending Bookings Section */}
-          {pendingBookings.length > 0 && (
-            <div className="luxe-card p-6 mb-12 animate-slide-up">
-              <h3 className="text-xl font-bold text-foreground mb-4">Pending Bookings</h3>
+          {/* Bookings Section with Filters */}
+          <div className="luxe-card p-6 mb-12 animate-slide-up">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+              <h3 className="text-xl font-bold text-foreground">Bookings</h3>
+
+              <div className="flex flex-wrap gap-3">
+                <select
+                  value={filterDays}
+                  onChange={(e) => setFilterDays(e.target.value)}
+                  className="h-10 px-3 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="7">Last 7 days</option>
+                  <option value="30">Last 30 days</option>
+                  <option value="90">Last 3 months</option>
+                </select>
+
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="h-10 px-3 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="all">All Status</option>
+                  <option value="confirmed">Confirmed</option>
+                  <option value="pending">Pending</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+
+                <select
+                  value={filterOrder}
+                  onChange={(e) => setFilterOrder(e.target.value)}
+                  className="h-10 px-3 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="desc">Newest First</option>
+                  <option value="asc">Oldest First</option>
+                </select>
+              </div>
+            </div>
+
+            {displayedBookings.length > 0 ? (
               <div className="space-y-4">
-                {pendingBookings.map((booking: any) => (
-                  <div key={booking._id} className="flex items-center justify-between p-4 bg-secondary/30 rounded-xl">
+                {displayedBookings.map((booking: any) => (
+                  <div key={booking.id} className="flex items-center justify-between p-4 bg-secondary/30 rounded-xl">
                     <div>
-                      <p className="font-medium text-foreground">{booking.hotelId?.title}</p>
+                      <p className="font-medium text-foreground">{booking.hotelName}</p>
                       <p className="text-sm text-muted-foreground">
-                        {booking.userId?.name} • {booking.nights} nights • ${booking.totalAmount}
+                        {booking.guestName} • {booking.roomType} • ${booking.amount}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {new Date(booking.checkIn).toLocaleDateString()} - {new Date(booking.checkOut).toLocaleDateString()}
                       </p>
                     </div>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" className="text-destructive hover:bg-destructive/10" onClick={() => handleUpdateBookingStatus(booking._id, 'rejected')}>
-                        <X className="w-4 h-4 mr-1" /> Reject
-                      </Button>
-                      <Button size="sm" className="bg-success hover:bg-success/90 text-white" onClick={() => handleUpdateBookingStatus(booking._id, 'confirmed')}>
-                        <Check className="w-4 h-4 mr-1" /> Approve
-                      </Button>
+                    <div className="flex items-center gap-3">
+                      <Badge variant={booking.status === 'confirmed' ? 'confirmed' : booking.status === 'cancelled' ? 'destructive' : 'secondary'}>
+                        {booking.status}
+                      </Badge>
+                      {booking.status === 'pending' && (
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="outline" className="text-destructive hover:bg-destructive/10" onClick={() => handleUpdateBookingStatus(booking.id, 'rejected')}>
+                            <X className="w-4 h-4 mr-1" /> Reject
+                          </Button>
+                          <Button size="sm" className="bg-success hover:bg-success/90 text-white" onClick={() => handleUpdateBookingStatus(booking.id, 'confirmed')}>
+                            <Check className="w-4 h-4 mr-1" /> Approve
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No bookings found for the selected filters.
+              </div>
+            )}
+          </div>
 
+          {/* Revenue Chart */}
+          <div className="luxe-card p-6 mb-12 animate-slide-up" style={{ animationDelay: "0.4s" }}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-foreground">Revenue Overview</h3>
+              <div className="flex gap-2">
+                <Button variant="secondary" size="sm">6 Months</Button>
+              </div>
+            </div>
+            <div className="h-80 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={trends}>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.1} vertical={false} />
+                  <XAxis
+                    dataKey="month"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                    dy={10}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                    tickFormatter={(value) => `$${value / 1000}k`}
+                  />
+                  <Tooltip
+                    cursor={{ fill: 'hsl(var(--muted)/0.2)' }}
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--card))',
+                      borderColor: 'hsl(var(--border))',
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                    }}
+                    itemStyle={{ color: 'hsl(var(--foreground))' }}
+                  />
+                  <Bar
+                    dataKey="revenue"
+                    fill="hsl(var(--primary))"
+                    radius={[4, 4, 0, 0]}
+                    maxBarSize={50}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
           {/* Hotels Table */}
           <div className="luxe-card overflow-hidden animate-slide-up" style={{ animationDelay: "0.5s" }}>
             <div className="p-6 border-b border-border">
