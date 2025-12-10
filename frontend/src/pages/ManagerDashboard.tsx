@@ -97,7 +97,7 @@ const ManagerDashboard = () => {
       const res = await axios.get(`https://mt-task.onrender.com/api/metrics?days=${metricsDays}`);
       if (res.data.success) {
         setMetrics(res.data.data);
-        // Add a small delay to show the animation
+        
         setTimeout(() => setIsMetricsLoading(false), 800);
       } else {
         setIsMetricsLoading(false);
@@ -188,7 +188,7 @@ const ManagerDashboard = () => {
     isFirstRender.current = false;
   }, []);
 
-  // Effect for client-side filters to show loading animation
+  // Effect dala hun for client-side filters to show loading animation
   useEffect(() => {
     if (isFirstRender.current) return;
     setLoadingSource('filter');
@@ -203,12 +203,12 @@ const ManagerDashboard = () => {
     if (tab === 'statistics' && activeTab !== 'statistics') {
       setIsStatsLoading(true);
       setActiveTab(tab);
-      setTimeout(() => setIsStatsLoading(false), 1500); // Show animation for 1.5s
+      setTimeout(() => setIsStatsLoading(false), 1500); 
     } else if (tab === 'bookings' && activeTab !== 'bookings') {
       setLoadingSource('tab');
       setIsLoading(true);
       setActiveTab(tab);
-      setTimeout(() => setIsLoading(false), 1500); // Show animation for 1.5s
+      setTimeout(() => setIsLoading(false), 1500); 
     } else {
       setActiveTab(tab);
     }
@@ -239,7 +239,6 @@ const ManagerDashboard = () => {
   };
 
   const handleUpdateBookingStatus = async (id: string, status: string) => {
-    // Note: This won't work for external bookings as IDs don't exist in local DB
     toast.info("This feature is disabled for demo data");
   };
 
@@ -253,7 +252,6 @@ const ManagerDashboard = () => {
     return true;
   });
 
-  // Mock data for hotel-wise revenue since we don't have a real endpoint for it
   const hotelRevenueData = [
     { hotel: "Grand Plaza Hotel", revenue: totalRevenue * 0.45 },
     { hotel: "Seaside Resort (Partner)", revenue: totalRevenue * 0.30 },
@@ -704,7 +702,6 @@ const HotelModal = ({ hotel, onClose, onHotelSaved }: { hotel?: any, onClose: ()
         address: hotel.address,
         otherAmenities: ""
       });
-      // Separate standard and other amenities
       const standard = hotel.amenities.filter((a: string) => standardAmenities.includes(a));
       const others = hotel.amenities.filter((a: string) => !standardAmenities.includes(a));
       setSelectedAmenities(standard);

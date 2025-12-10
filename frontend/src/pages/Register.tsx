@@ -23,7 +23,6 @@ const Register = () => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Dummy user simulation
     if (email === 'manager1@gmail.com' && password === 'manager1234') {
       const dummyUser = {
         _id: 'dummy_manager_id',
@@ -33,7 +32,6 @@ const Register = () => {
       };
       const dummyToken = 'dummy_token';
 
-      // Simulate network delay
       setTimeout(() => {
         login(dummyUser, dummyToken);
         toast.success("Account created successfully! Welcome to LuxeStay.");
@@ -92,10 +90,9 @@ const Register = () => {
         </div>
       </div>
 
-      {/* Right Side - Form */}
+      
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-background">
         <div className="w-full max-w-md space-y-6 animate-fade-in">
-          {/* Mobile Logo */}
           <div className="lg:hidden text-center mb-8">
             <Link to="/" className="inline-flex items-center gap-2">
               <div className="w-10 h-10 rounded-xl luxe-gradient flex items-center justify-center">

@@ -21,7 +21,6 @@ const Login = () => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Dummy user simulation
     if (email === 'manager1@gmail.com' && password === 'manager1234') {
       const dummyUser = {
         _id: 'dummy_manager_id',

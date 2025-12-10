@@ -1,39 +1,61 @@
-# Hotel Booking Platform
+# LuxeStay - Premium Hotel Management Dashboard
 
-A full-stack RBAC-based Hotel Booking Platform.
+A high-fidelity, UI/UX-centric Hotel Management Dashboard built with modern web technologies. This project prioritizes visual aesthetics, smooth interactions, and immersive user experiences.
 
-## Tech Stack
-- **Frontend**: React.js (Vite), Tailwind CSS, Zustand, Recharts
-- **Backend**: Node.js, Express, MongoDB, JWT
-- **Database**: MongoDB
+## 🎨 UI/UX Highlights
 
-## Setup Instructions
+This project was crafted with a "Design First" philosophy, featuring:
+
+- **Immersive Loading Experiences**:
+  - **Video-based Loaders**: Context-aware video animations (e.g., "Delivery Schedule" for bookings, "Revenue" for stats) provide a premium feel during tab transitions.
+  - **Custom CSS Animations**: Bespoke CSS loaders like the "Jumping Square" for filters and "Grid Pulse" for metrics ensure users are always entertained, even while waiting.
+- **Interactive Data Visualization**:
+  - **3D Pie Charts**: Integrated **AmCharts** for stunning 3D visualizations of revenue data.
+  - **Dynamic Bar Charts**: **Recharts** implementation with custom tooltips and smooth transitions.
+  - **Seamless Toggles**: Linear loading indicators provide visual feedback when switching between chart types.
+- **Glassmorphism & Modern Aesthetics**:
+  - **Blooming Cards**: Metrics cards feature a unique "blooming" entry animation, glass-morphic backgrounds, and subtle glow effects on hover.
+  - **Polished Components**: Custom-styled dropdowns, badges, and buttons that adhere to a cohesive design system.
+- **Micro-Interactions**:
+  - Hover states with scale and glow effects.
+  - Smooth transitions for filtering and sorting operations.
+  - Animated entry for page content (`animate-slide-up`, `animate-fade-in`).
+
+## 🛠️ Tech Stack
+
+### Frontend Core
+- **React.js (Vite)**: For lightning-fast development and performance.
+- **TypeScript**: Ensuring type safety and code robustness.
+- **Tailwind CSS**: For rapid, utility-first styling and custom design systems.
+
+### UI & Animation Libraries
+- **AmCharts 4**: For high-end 3D charting capabilities.
+- **Recharts**: For responsive and customizable standard charts.
+- **Lucide React**: For clean, consistent iconography.
+- **Sonner**: For beautiful, non-intrusive toast notifications.
+- **Custom CSS**: Hand-crafted keyframe animations for unique loaders and effects.
+
+### State Management & Data
+- **Zustand**: For lightweight and efficient global state management.
+- **Axios**: For robust API integration.
+
+## ✨ Key Features
+
+### Manager Dashboard
+- **Comprehensive Metrics**: Real-time view of Total Bookings, Revenue, Occupancy, and more, displayed in interactive cards.
+- **Advanced Filtering**:
+  - **Time-Travel**: Filter metrics by various ranges (Last 7 days to Last 12 months).
+  - **Granular Booking Control**: Filter bookings by Payment Status, Room Type, and Order.
+- **Visual Analytics**: Toggle between 3D Pie Charts and Bar Charts to analyze revenue trends.
+- **Property Management**: Add, edit, and delete hotel listings with a seamless modal interface.
+
+## 🚀 Setup Instructions
 
 ### Prerequisites
 - Node.js installed
 - MongoDB installed and running
 
-### Backend Setup
-1. Navigate to `backend` directory:
-   ```bash
-   cd backend
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Create `.env` file (already created):
-   ```
-   PORT=5000
-   MONGO_URI=mongodb://localhost:27017/mytravaly
-   JWT_SECRET=supersecretkey123
-   ```
-4. Start the server:
-   ```bash
-   npm run dev
-   ```
-
-### Frontend Setup
+### Frontend Setup (The Star of the Show)
 1. Navigate to `frontend` directory:
    ```bash
    cd frontend
@@ -46,17 +68,29 @@ A full-stack RBAC-based Hotel Booking Platform.
    ```bash
    npm run dev
    ```
+   *The app will launch at `http://localhost:8080` (or next available port).*
 
-## Features
-- **Authentication**: Register/Login with Role-Based Access Control (Manager/Customer).
-- **Manager Dashboard**: View analytics, create hotels, upload images.
-- **Customer Dashboard**: View bookings, cancel bookings.
-- **Hotel Booking**: Browse hotels, view details, book stays.
+### Backend Setup
+1. Navigate to `backend` directory:
+   ```bash
+   cd backend
+   ```
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Create `.env` file:
+   ```
+   PORT=5000
+   MONGO_URI=mongodb://localhost:27017/mytravaly
+   JWT_SECRET=supersecretkey123
+   ```
+4. Start the server:
+   ```bash
+   npm run dev
+   ```
 
-## API Endpoints
-- `POST /api/auth/register`
-- `POST /api/auth/login`
-- `GET /api/hotels`
-- `POST /api/hotels` (Manager)
-- `POST /api/bookings` (Customer)
-- `GET /api/metrics/manager` (Manager)
+## 📸 Visual Showcase
+
+*Note: The application features video backgrounds and animations that are best experienced live.*
+
