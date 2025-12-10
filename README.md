@@ -2,7 +2,7 @@
 
 A high-fidelity, UI/UX-centric Hotel Management Dashboard built with modern web technologies. This project prioritizes visual aesthetics, smooth interactions, and immersive user experiences.
 
-##Live Vercel Link with working Frontend : https://my-travaly-task.vercel.app/
+### Live Vercel Link with working Frontend : https://my-travaly-task.vercel.app/
 
 ## 🎨 UI/UX Highlights
 
