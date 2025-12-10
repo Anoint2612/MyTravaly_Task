@@ -61,7 +61,7 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex">
+    <div className="h-screen w-full flex overflow-hidden">
       {/* Left Side - Image */}
       <div className="hidden lg:flex lg:w-1/2 relative">
         <img
@@ -106,6 +106,11 @@ const Login = () => {
           </div>
 
           <div className="text-center lg:text-left">
+            <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 mb-6 text-left">
+              <p className="text-sm font-semibold text-primary mb-1">Demo Credentials:</p>
+              <p className="text-sm text-muted-foreground">Username: <span className="font-mono text-foreground">manager1@gmail.com</span></p>
+              <p className="text-sm text-muted-foreground">Password: <span className="font-mono text-foreground">manager1234</span></p>
+            </div>
             <h1 className="text-3xl font-bold text-foreground mb-2">Sign In</h1>
             <p className="text-muted-foreground">
               Enter your credentials to access your account

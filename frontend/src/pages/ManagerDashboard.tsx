@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import {
   DollarSign,
@@ -12,7 +12,12 @@ import {
   Building,
   BarChart3,
   Check,
-  X
+  X,
+  Clock,
+  XCircle,
+  CreditCard,
+  Percent,
+  Activity
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +28,13 @@ import apiClient from "@/services/apiClient";
 import useAuthStore from "@/store/authStore";
 import axios from "axios";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+
+import { Loader } from "@/components/ui/loader";
+
+import hotelReceptionist from "@/assets/hotel-receptionist.mp4";
+import deliverySchedule from "@/assets/delivery-schedule.mp4";
+import revenue from "@/assets/revenue.mp4";
+import RevenuePieChart from "@/components/RevenuePieChart";
 
 const ManagerDashboard = () => {
   const [hotels, setHotels] = useState<any[]>([]);
@@ -36,57 +48,183 @@ const ManagerDashboard = () => {
   const [filterDays, setFilterDays] = useState("30");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterOrder, setFilterOrder] = useState("desc");
+  const [filterPayment, setFilterPayment] = useState("all");
+  const [filterRoomType, setFilterRoomType] = useState("all");
 
-  const fetchData = async () => {
-    try {
-      // Check for dummy user
-      if (user?.email === 'manager1@gmail.com') {
-        const dummyHotels = [{
-          _id: 'dummy_hotel_1',
-          title: 'Grand Plaza Hotel (Demo)',
-          address: 'New York, USA',
-          pricePerNight: 450,
-          bookingsCount: 12,
-          revenue: 5400,
-          status: 'active',
-          images: [],
-          amenities: ['Free WiFi', 'Swimming Pool'],
-          createdBy: 'dummy_manager_id'
-        }];
-        setHotels(dummyHotels);
-      } else {
-        // Fetch local hotels
+  const [activeTab, setActiveTab] = useState<'bookings' | 'statistics'>('bookings');
+  const [statsMonths, setStatsMonths] = useState("6");
+  const [metricsDays, setMetricsDays] = useState("7");
+  const [chartType, setChartType] = useState<'bar' | 'pie'>('pie');
+
+  const isFirstRender = useRef(true);
+  const [isChartLoading, setIsChartLoading] = useState(false);
+  const [isMetricsLoading, setIsMetricsLoading] = useState(false);
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingSource, setLoadingSource] = useState<'tab' | 'filter'>('filter');
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isStatsLoading, setIsStatsLoading] = useState(false);
+
+  const fetchHotels = async () => {
+    if (user?.email === 'manager1@gmail.com') {
+      const dummyHotels = [{
+        _id: 'dummy_hotel_1',
+        title: 'Grand Plaza Hotel (Demo)',
+        address: 'New York, USA',
+        pricePerNight: 450,
+        bookingsCount: 12,
+        revenue: 5400,
+        status: 'active',
+        images: [],
+        amenities: ['Free WiFi', 'Swimming Pool'],
+        createdBy: 'dummy_manager_id'
+      }];
+      setHotels(dummyHotels);
+    } else {
+      try {
         const hotelsRes = await apiClient.get('/hotels');
         const myHotels = hotelsRes.data.filter((h: any) => h.createdBy?._id === user?._id || h.createdBy === user?._id);
         setHotels(myHotels);
+      } catch (error) {
+        console.error("Failed to fetch hotels", error);
       }
+    }
+  };
 
-      // Build query string for bookings
+  const fetchMetrics = async () => {
+    setIsMetricsLoading(true);
+    try {
+      const res = await axios.get(`https://mt-task.onrender.com/api/metrics?days=${metricsDays}`);
+      if (res.data.success) {
+        setMetrics(res.data.data);
+        // Add a small delay to show the animation
+        setTimeout(() => setIsMetricsLoading(false), 800);
+      } else {
+        setIsMetricsLoading(false);
+      }
+    } catch (error) {
+      console.error("Failed to fetch metrics", error);
+      toast.error("Failed to fetch metrics");
+      setIsMetricsLoading(false);
+    }
+  };
+
+  const fetchBookings = async () => {
+    setLoadingSource('filter');
+    setIsLoading(true);
+    try {
       const bookingParams = new URLSearchParams();
       if (filterDays) bookingParams.append('days', filterDays);
       if (filterStatus && filterStatus !== 'all') bookingParams.append('status', filterStatus);
       if (filterOrder) bookingParams.append('order', filterOrder);
 
-      // Fetch external data
-      const [metricsRes, bookingsRes, trendsRes] = await Promise.all([
-        axios.get(`https://mt-task.onrender.com/api/metrics?days=${filterDays}`),
-        axios.get(`https://mt-task.onrender.com/api/bookings?${bookingParams.toString()}`),
-        axios.get('https://mt-task.onrender.com/api/trends?months=6')
+      const res = await axios.get(`https://mt-task.onrender.com/api/bookings?${bookingParams.toString()}`);
+      if (res.data.success) setBookings(res.data.data);
+    } catch (error) {
+      console.error("Failed to fetch bookings", error);
+      toast.error("Failed to fetch bookings");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchTrends = async () => {
+    try {
+      const res = await axios.get(`https://mt-task.onrender.com/api/trends?months=${statsMonths}`);
+      if (res.data.success) {
+        if (Array.isArray(res.data.data)) {
+          setTrends(res.data.data);
+        } else {
+          setTrends([]);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch trends", error);
+    }
+  };
+
+  const fetchAllData = async () => {
+    const startTime = Date.now();
+    try {
+      await Promise.all([
+        fetchHotels(),
+        fetchMetrics(),
+        fetchBookings(),
+        fetchTrends()
       ]);
-
-      if (metricsRes.data.success) setMetrics(metricsRes.data.data);
-      if (bookingsRes.data.success) setBookings(bookingsRes.data.data);
-      if (trendsRes.data.success) setTrends(trendsRes.data.data);
-
     } catch (error) {
       console.error(error);
       toast.error("Failed to fetch dashboard data");
+    } finally {
+      const elapsed = Date.now() - startTime;
+      if (elapsed < 1500) {
+        await new Promise(resolve => setTimeout(resolve, 1500 - elapsed));
+      }
+      setIsInitialLoad(false);
+      setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    if (user) fetchData();
-  }, [user, filterDays, filterStatus, filterOrder]);
+    if (user) fetchAllData();
+  }, [user]);
+
+  useEffect(() => {
+    if (isFirstRender.current) return;
+    fetchMetrics();
+  }, [metricsDays]);
+
+  useEffect(() => {
+    if (isFirstRender.current) return;
+    fetchBookings();
+  }, [filterDays, filterStatus, filterOrder]);
+
+  useEffect(() => {
+    if (isFirstRender.current) return;
+    fetchTrends();
+  }, [statsMonths]);
+
+  useEffect(() => {
+    isFirstRender.current = false;
+  }, []);
+
+  // Effect for client-side filters to show loading animation
+  useEffect(() => {
+    if (isFirstRender.current) return;
+    setLoadingSource('filter');
+    setIsLoading(true);
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [filterPayment, filterRoomType]);
+
+  const handleTabChange = (tab: 'bookings' | 'statistics') => {
+    if (tab === 'statistics' && activeTab !== 'statistics') {
+      setIsStatsLoading(true);
+      setActiveTab(tab);
+      setTimeout(() => setIsStatsLoading(false), 1500); // Show animation for 1.5s
+    } else if (tab === 'bookings' && activeTab !== 'bookings') {
+      setLoadingSource('tab');
+      setIsLoading(true);
+      setActiveTab(tab);
+      setTimeout(() => setIsLoading(false), 1500); // Show animation for 1.5s
+    } else {
+      setActiveTab(tab);
+    }
+  };
+
+  const handleChartTypeChange = (type: 'bar' | 'pie') => {
+    if (type !== chartType) {
+      setIsChartLoading(true);
+      setChartType(type);
+      setTimeout(() => setIsChartLoading(false), 800);
+    }
+  };
+
+  if (isInitialLoad) {
+    return <Loader fullScreen videoSrc={hotelReceptionist} text="Hang tight getting your Bookings..." />;
+  }
 
   const handleDeleteHotel = async (id: string) => {
     if (confirm("Are you sure you want to delete this hotel?")) {
@@ -109,13 +247,18 @@ const ManagerDashboard = () => {
   const totalBookings = metrics?.totalBookings || 0;
   const activeBookings = (metrics?.pending || 0) + (metrics?.confirmed || 0);
 
-  // Filter pending bookings locally if needed, but API should handle it. 
-  // However, the user wants "Pending Bookings" section. 
-  // If the user filters by 'confirmed', this list might be empty or show confirmed bookings.
-  // Let's assume this section shows whatever the API returns based on filters.
-  // Renaming "Pending Bookings" to "Recent Bookings" or just "Bookings" might be better if filters apply.
-  // But for now, I'll keep the variable name but display all bookings returned.
-  const displayedBookings = bookings;
+  const displayedBookings = bookings.filter(booking => {
+    if (filterPayment !== 'all' && booking.paymentStatus !== filterPayment) return false;
+    if (filterRoomType !== 'all' && booking.roomType !== filterRoomType) return false;
+    return true;
+  });
+
+  // Mock data for hotel-wise revenue since we don't have a real endpoint for it
+  const hotelRevenueData = [
+    { hotel: "Grand Plaza Hotel", revenue: totalRevenue * 0.45 },
+    { hotel: "Seaside Resort (Partner)", revenue: totalRevenue * 0.30 },
+    { hotel: "Mountain View Lodge", revenue: totalRevenue * 0.25 },
+  ];
 
   return (
     <div className="min-h-screen bg-background">
@@ -139,180 +282,321 @@ const ManagerDashboard = () => {
             </Button>
           </div>
 
-          {/* Analytics Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-            {[
-              {
-                label: "Total Revenue",
-                value: `$${totalRevenue.toLocaleString()}`,
-                change: "+12.5%",
-                icon: DollarSign,
-                color: "text-success",
-                bgColor: "bg-success/10"
-              },
-              {
-                label: "Total Bookings",
-                value: totalBookings.toString(),
-                change: "+8.2%",
-                icon: Calendar,
-                color: "text-primary",
-                bgColor: "bg-primary/10"
-              },
-              {
-                label: "Active Bookings",
-                value: activeBookings.toString(),
-                change: "Current",
-                icon: TrendingUp,
-                color: "text-warning",
-                bgColor: "bg-warning/10"
-              },
-              {
-                label: "Active Properties",
-                value: hotels.filter(h => h.status === "active").length.toString(),
-                change: "Stable",
-                icon: Building,
-                color: "text-muted-foreground",
-                bgColor: "bg-muted"
-              },
-            ].map((stat, index) => (
-              <div
-                key={index}
-                className="luxe-card p-6 animate-slide-up"
-                style={{ animationDelay: `${index * 0.1}s` }}
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <div className={`w-12 h-12 rounded-xl ${stat.bgColor} flex items-center justify-center`}>
-                    <stat.icon className={`w-6 h-6 ${stat.color}`} />
-                  </div>
-                  <span className="text-sm font-medium text-success">{stat.change}</span>
-                </div>
-                <p className="text-sm text-muted-foreground mb-1">{stat.label}</p>
-                <p className="text-2xl font-bold text-foreground">{stat.value}</p>
-              </div>
-            ))}
+          {/* Analytics Filter */}
+          <div className="flex justify-end mb-6">
+            <select
+              value={metricsDays}
+              onChange={(e) => setMetricsDays(e.target.value)}
+              className="h-10 px-4 rounded-xl border border-input bg-background text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary shadow-sm transition-all hover:border-primary/50"
+            >
+              <option value="7">Last 7 days</option>
+              <option value="30">Last month (30 days)</option>
+              <option value="90">Last 3 months (90 days)</option>
+              <option value="180">Last 6 months (180 days)</option>
+              <option value="300">Last 10 months (300 days)</option>
+              <option value="365">Last 12 months (365 days)</option>
+            </select>
           </div>
 
-          {/* Bookings Section with Filters */}
-          <div className="luxe-card p-6 mb-12 animate-slide-up">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-              <h3 className="text-xl font-bold text-foreground">Bookings</h3>
-
-              <div className="flex flex-wrap gap-3">
-                <select
-                  value={filterDays}
-                  onChange={(e) => setFilterDays(e.target.value)}
-                  className="h-10 px-3 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="7">Last 7 days</option>
-                  <option value="30">Last 30 days</option>
-                  <option value="90">Last 3 months</option>
-                </select>
-
-                <select
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                  className="h-10 px-3 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="all">All Status</option>
-                  <option value="confirmed">Confirmed</option>
-                  <option value="pending">Pending</option>
-                  <option value="cancelled">Cancelled</option>
-                </select>
-
-                <select
-                  value={filterOrder}
-                  onChange={(e) => setFilterOrder(e.target.value)}
-                  className="h-10 px-3 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="desc">Newest First</option>
-                  <option value="asc">Oldest First</option>
-                </select>
-              </div>
-            </div>
-
-            {displayedBookings.length > 0 ? (
-              <div className="space-y-4">
-                {displayedBookings.map((booking: any) => (
-                  <div key={booking.id} className="flex items-center justify-between p-4 bg-secondary/30 rounded-xl">
-                    <div>
-                      <p className="font-medium text-foreground">{booking.hotelName}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {booking.guestName} • {booking.roomType} • ${booking.amount}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(booking.checkIn).toLocaleDateString()} - {new Date(booking.checkOut).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Badge variant={booking.status === 'confirmed' ? 'confirmed' : booking.status === 'cancelled' ? 'destructive' : 'secondary'}>
-                        {booking.status}
-                      </Badge>
-                      {booking.status === 'pending' && (
-                        <div className="flex gap-2">
-                          <Button size="sm" variant="outline" className="text-destructive hover:bg-destructive/10" onClick={() => handleUpdateBookingStatus(booking.id, 'rejected')}>
-                            <X className="w-4 h-4 mr-1" /> Reject
-                          </Button>
-                          <Button size="sm" className="bg-success hover:bg-success/90 text-white" onClick={() => handleUpdateBookingStatus(booking.id, 'confirmed')}>
-                            <Check className="w-4 h-4 mr-1" /> Approve
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                No bookings found for the selected filters.
+          {/* Analytics Cards */}
+          <div className="relative mb-12">
+            {isMetricsLoading && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center">
+                <Loader variant="grid" />
               </div>
             )}
+            <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 transition-all duration-500 ${isMetricsLoading ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
+              {[
+                {
+                  label: "Total Bookings",
+                  value: metrics?.totalBookings || 0,
+                  icon: Calendar,
+                  color: "text-blue-500",
+                  bgColor: "bg-blue-500/10"
+                },
+                {
+                  label: "Confirmed",
+                  value: metrics?.confirmed || 0,
+                  icon: Check,
+                  color: "text-green-500",
+                  bgColor: "bg-green-500/10"
+                },
+                {
+                  label: "Pending",
+                  value: metrics?.pending || 0,
+                  icon: Clock,
+                  color: "text-yellow-500",
+                  bgColor: "bg-yellow-500/10"
+                },
+                {
+                  label: "Cancelled",
+                  value: metrics?.cancelled || 0,
+                  icon: XCircle,
+                  color: "text-red-500",
+                  bgColor: "bg-red-500/10"
+                },
+                {
+                  label: "Total Revenue",
+                  value: `$${(metrics?.totalRevenue || 0).toLocaleString()}`,
+                  icon: DollarSign,
+                  color: "text-emerald-500",
+                  bgColor: "bg-emerald-500/10"
+                },
+                {
+                  label: "Avg. Booking Value",
+                  value: `$${(metrics?.averageBookingValue || 0).toLocaleString()}`,
+                  icon: CreditCard,
+                  color: "text-purple-500",
+                  bgColor: "bg-purple-500/10"
+                },
+                {
+                  label: "Occupancy Rate",
+                  value: `${metrics?.occupancyRate || 0}%`,
+                  icon: Users,
+                  color: "text-indigo-500",
+                  bgColor: "bg-indigo-500/10"
+                },
+                {
+                  label: "Conversion Rate",
+                  value: `${metrics?.conversionRate || 0}%`,
+                  icon: TrendingUp,
+                  color: "text-pink-500",
+                  bgColor: "bg-pink-500/10"
+                },
+              ].map((stat, index) => (
+                <div
+                  key={index}
+                  className="metrics-card animate-slide-up cursor-pointer"
+                  style={{ animationDelay: `${index * 0.05}s` }}
+                >
+                  <div className="metrics-card__shine"></div>
+                  <div className="metrics-card__glow"></div>
+                  <div className="metrics-card__content">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className={`w-12 h-12 rounded-xl ${stat.bgColor} flex items-center justify-center`}>
+                        <stat.icon className={`w-6 h-6 ${stat.color}`} />
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1 font-medium">{stat.label}</p>
+                      <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
-          {/* Revenue Chart */}
-          <div className="luxe-card p-6 mb-12 animate-slide-up" style={{ animationDelay: "0.4s" }}>
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold text-foreground">Revenue Overview</h3>
-              <div className="flex gap-2">
-                <Button variant="secondary" size="sm">6 Months</Button>
-              </div>
-            </div>
-            <div className="h-80 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={trends}>
-                  <CartesianGrid strokeDasharray="3 3" opacity={0.1} vertical={false} />
-                  <XAxis
-                    dataKey="month"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                    dy={10}
-                  />
-                  <YAxis
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                    tickFormatter={(value) => `$${value / 1000}k`}
-                  />
-                  <Tooltip
-                    cursor={{ fill: 'hsl(var(--muted)/0.2)' }}
-                    contentStyle={{
-                      backgroundColor: 'hsl(var(--card))',
-                      borderColor: 'hsl(var(--border))',
-                      borderRadius: '8px',
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                    }}
-                    itemStyle={{ color: 'hsl(var(--foreground))' }}
-                  />
-                  <Bar
-                    dataKey="revenue"
-                    fill="hsl(var(--primary))"
-                    radius={[4, 4, 0, 0]}
-                    maxBarSize={50}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+          {/* Tabs Navigation */}
+          <div className="flex space-x-4 mb-8 border-b border-border">
+            <button
+              className={`pb-2 px-4 font-medium transition-colors ${activeTab === 'bookings' ? 'border-b-2 border-primary text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+              onClick={() => handleTabChange('bookings')}
+            >
+              Bookings
+            </button>
+            <button
+              className={`pb-2 px-4 font-medium transition-colors ${activeTab === 'statistics' ? 'border-b-2 border-primary text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+              onClick={() => handleTabChange('statistics')}
+            >
+              Statistics
+            </button>
           </div>
+
+          {/* Bookings Tab Content */}
+          {activeTab === 'bookings' && (
+            <div className="luxe-card p-6 mb-12 animate-slide-up">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                <h3 className="text-xl font-bold text-foreground">Bookings</h3>
+
+                <div className="flex flex-wrap gap-3">
+                  <select
+                    value={filterDays}
+                    onChange={(e) => setFilterDays(e.target.value)}
+                    className="h-10 px-3 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="7">Last 7 days</option>
+                    <option value="30">Last 30 days</option>
+                    <option value="90">Last 3 months</option>
+                  </select>
+
+                  <select
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value)}
+                    className="h-10 px-3 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="all">All Status</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="pending">Pending</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+
+                  <select
+                    value={filterPayment}
+                    onChange={(e) => setFilterPayment(e.target.value)}
+                    className="h-10 px-3 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="all">All Payments</option>
+                    <option value="paid">Paid</option>
+                    <option value="pending">Pending</option>
+                  </select>
+
+                  <select
+                    value={filterRoomType}
+                    onChange={(e) => setFilterRoomType(e.target.value)}
+                    className="h-10 px-3 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="all">All Rooms</option>
+                    <option value="Suite">Suite</option>
+                    <option value="Deluxe">Deluxe</option>
+                    <option value="Villa">Villa</option>
+                  </select>
+
+                  <select
+                    value={filterOrder}
+                    onChange={(e) => setFilterOrder(e.target.value)}
+                    className="h-10 px-3 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="desc">Newest First</option>
+                    <option value="asc">Oldest First</option>
+                  </select>
+                </div>
+              </div>
+
+              {isLoading ? (
+                loadingSource === 'tab' ? (
+                  <Loader className="py-12" videoSrc={deliverySchedule} />
+                ) : (
+                  <Loader className="py-12" variant="custom" />
+                )
+              ) : displayedBookings.length > 0 ? (
+                <div className="space-y-4">
+                  {displayedBookings.map((booking: any) => (
+                    <div key={booking.id} className="flex items-center justify-between p-4 bg-secondary/30 rounded-xl">
+                      <div>
+                        <p className="font-medium text-foreground">{booking.hotelName}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {booking.guestName} • {booking.roomType} • ${booking.amount}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(booking.checkIn).toLocaleDateString()} - {new Date(booking.checkOut).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Badge variant={booking.status === 'confirmed' ? 'confirmed' : booking.status === 'cancelled' ? 'destructive' : 'secondary'}>
+                          {booking.status}
+                        </Badge>
+                        {booking.status === 'pending' && (
+                          <div className="flex gap-2">
+                            <Button size="sm" className="bg-destructive hover:bg-destructive/90 text-white" onClick={() => handleUpdateBookingStatus(booking.id, 'rejected')}>
+                              <X className="w-4 h-4 mr-1" /> Reject
+                            </Button>
+                            <Button size="sm" className="bg-success hover:bg-success/90 text-white" onClick={() => handleUpdateBookingStatus(booking.id, 'confirmed')}>
+                              <Check className="w-4 h-4 mr-1" /> Approve
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  No bookings found for the selected filters.
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Statistics Tab Content */}
+          {activeTab === 'statistics' && (
+            <div className="luxe-card p-6 mb-12 animate-slide-up">
+              {isStatsLoading ? (
+                <Loader className="py-12" videoSrc={revenue} />
+              ) : (
+                <>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                    <h3 className="text-xl font-bold text-foreground">Revenue Overview</h3>
+                    <div className="flex gap-3">
+                      <select
+                        value={chartType}
+                        onChange={(e) => handleChartTypeChange(e.target.value as 'bar' | 'pie')}
+                        className="h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                      >
+                        <option value="pie">Pie Chart</option>
+                        <option value="bar">Bar Chart</option>
+                      </select>
+
+                      <select
+                        value={statsMonths}
+                        onChange={(e) => setStatsMonths(e.target.value)}
+                        className="h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                      >
+                        <option value="3">3 Months</option>
+                        <option value="6">6 Months</option>
+                        <option value="12">12 Months</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="w-full min-h-[400px]">
+                    <h4 className="text-lg font-semibold mb-6 text-center">Month-wise Revenue Share</h4>
+
+                    {isChartLoading ? (
+                      <div className="h-[400px] w-full flex items-center justify-center">
+                        <Loader variant="linear" />
+                      </div>
+                    ) : chartType === 'pie' ? (
+                      <RevenuePieChart
+                        data={trends}
+                        categoryField="month"
+                        valueField="revenue"
+                        chartId="monthRevenueChart"
+                      />
+                    ) : (
+                      <div className="h-[400px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={trends}>
+                            <CartesianGrid strokeDasharray="3 3" opacity={0.1} vertical={false} />
+                            <XAxis
+                              dataKey="month"
+                              axisLine={false}
+                              tickLine={false}
+                              tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                              dy={10}
+                            />
+                            <YAxis
+                              axisLine={false}
+                              tickLine={false}
+                              tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                              tickFormatter={(value) => `$${value / 1000}k`}
+                            />
+                            <Tooltip
+                              cursor={{ fill: 'hsl(var(--muted)/0.2)' }}
+                              contentStyle={{
+                                backgroundColor: 'hsl(var(--card))',
+                                borderColor: 'hsl(var(--border))',
+                                borderRadius: '8px',
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                              }}
+                              itemStyle={{ color: 'hsl(var(--foreground))' }}
+                              formatter={(value: number) => [`$${value}`, 'Revenue']}
+                            />
+                            <Bar
+                              dataKey="revenue"
+                              fill="hsl(var(--primary))"
+                              radius={[4, 4, 0, 0]}
+                              maxBarSize={50}
+                            />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
           {/* Hotels Table */}
           <div className="luxe-card overflow-hidden animate-slide-up" style={{ animationDelay: "0.5s" }}>
             <div className="p-6 border-b border-border">
@@ -384,7 +668,7 @@ const ManagerDashboard = () => {
         <HotelModal
           hotel={editingHotel}
           onClose={() => { setShowAddModal(false); setEditingHotel(null); }}
-          onHotelSaved={fetchData}
+          onHotelSaved={fetchAllData}
         />
       )}
     </div>
